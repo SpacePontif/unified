@@ -7,7 +7,7 @@
 #include "API/CGameEffect.hpp"
 #include "API/CNWClass.hpp"
 #include "API/CNWFeat.hpp"
-#include "API/CNWSVirtualMachineCommands.hpp"
+#include "API/CNWVirtualMachineCommands.hpp"
 #include "API/CNWSArea.hpp"
 #include "API/CNWSCreature.hpp"
 #include "API/CNWSCreatureStats.hpp"
@@ -35,15 +35,15 @@ using namespace NWNXLib::API;
 
 namespace CormyrDalelands {
 
-const static int32_t ITEM_PROPERTY_GHOST_TOUCH_WEAPON = 213;
+const int32_t ITEM_PROPERTY_GHOST_TOUCH_WEAPON = 213;
 
-const static uint8_t CLASS_TYPE_TEMPEST = 86;
-const static uint16_t FEAT_TEMPEST_AMBIDEXTERITY_1 = 2483;
-const static uint16_t FEAT_TEMPEST_AMBIDEXTERITY_2 = 2486;
+const uint8_t CLASS_TYPE_TEMPEST = 86;
+const uint16_t FEAT_TEMPEST_AMBIDEXTERITY_1 = 2483;
+const uint16_t FEAT_TEMPEST_AMBIDEXTERITY_2 = 2486;
 
-static std::unordered_map<std::uint16_t, int8_t> m_ACNaturalBaseModifierFeats;
+std::unordered_map<std::uint16_t, int8_t> m_ACNaturalBaseModifierFeats;
 
-static std::set<std::uint16_t> m_DefaultSneakAttackFeats = {
+std::set<std::uint16_t> m_DefaultSneakAttackFeats = {
     Constants::Feat::SneakAttack,
     Constants::Feat::SneakAttack2,
     Constants::Feat::SneakAttack3,
@@ -90,9 +90,9 @@ static std::set<std::uint16_t> m_DefaultSneakAttackFeats = {
     Constants::Feat::EpicImprovedSneakAttack9,
     Constants::Feat::EpicImprovedSneakAttack10
 };
-static std::set<std::uint16_t> m_SneakAttackFeats = m_DefaultSneakAttackFeats;
+std::set<std::uint16_t> m_SneakAttackFeats = m_DefaultSneakAttackFeats;
 
-static std::set<std::uint16_t> m_DefaultDeathAttackFeats = {
+std::set<std::uint16_t> m_DefaultDeathAttackFeats = {
     Constants::Feat::PrestigeDeathAttack1,
     Constants::Feat::PrestigeDeathAttack2,
     Constants::Feat::PrestigeDeathAttack3,
@@ -114,20 +114,18 @@ static std::set<std::uint16_t> m_DefaultDeathAttackFeats = {
     Constants::Feat::PrestigeDeathAttack19,
     Constants::Feat::PrestigeDeathAttack20
 };
-static std::set<std::uint16_t> m_DeathAttackFeats = m_DefaultDeathAttackFeats;
+std::set<std::uint16_t> m_DeathAttackFeats = m_DefaultDeathAttackFeats;
 
-static std::set<std::uint8_t> m_SneakAttackUncannyDodgeClasses = {
+std::set<std::uint8_t> m_SneakAttackUncannyDodgeClasses = {
     Constants::ClassType::Barbarian,
     Constants::ClassType::Rogue,
     Constants::ClassType::Assassin,
     Constants::ClassType::Shadowdancer
 };
 
-static std::set<std::uint8_t> m_BardSongUsesProgressingClasses = {
+std::set<std::uint8_t> m_BardSongUsesProgressingClasses = {
     Constants::ClassType::Bard
 };
-
-static std::set<std::uint32_t> m_BaseItemsAllowUseUnequipped;
 
 static bool s_InResolveDefensiveEffectsWithGhostTouchWeapon;
 static bool s_OverrideSneakAttackDamageRoll;
@@ -135,7 +133,6 @@ static bool s_InSneakAttackRollDice;
 static bool s_OverrideDeathAttackDamageRoll;
 static bool s_InDeathAttackRollDice;
 static int32_t s_TempestAmbidexterityModifier;
-static bool s_InUseItemAllowUnequipped;
 static bool s_BardSongExtraMusicByCharismaModifier = Config::Get<bool>("BARD_SONG_EXTRA_MUSIC_BY_CHARISMA_MOD", false);
 static bool s_LingeringSongExtraMusic = Config::Get<bool>("BARD_SONG_EXTRA_MUSIC_USE_LINGERING_SONG_FEAT", false);
 
@@ -166,6 +163,8 @@ void GhostTouchWeaponProperty()
                             s_ResolveDefensiveEffectsHook->CallOriginal<bool>(pThis, pTarget, bAttackHit);
                             s_InResolveDefensiveEffectsWithGhostTouchWeapon = false;
                         }
+
+                        return false;
                     }
                 }
             }
@@ -188,20 +187,15 @@ void GhostTouchWeaponProperty()
 
     static Hooks::Hook s_GetRulesetIntEntryHook =
         Hooks::HookFunction(&CNWRules::GetRulesetIntEntry,
-        +[](CNWRules *pThis, uint64_t hashedLabel, int32_t whenMissing) -> int32_t
+        +[](CNWRules *pThis, const CExoString &label, int32_t whenMissing) -> int32_t
         {
             if (s_InResolveDefensiveEffectsWithGhostTouchWeapon)
             {
-                if (hashedLabel == CRULES_HASHEDSTR("INVISIBILITY_CONCEALMENT_CHANCE") ||
-                    hashedLabel == CRULES_HASHEDSTR("EPIC_SELF_CONCEALMENT_10") ||
-                    hashedLabel == CRULES_HASHEDSTR("EPIC_SELF_CONCEALMENT_20") ||
-                    hashedLabel == CRULES_HASHEDSTR("EPIC_SELF_CONCEALMENT_30") ||
-                    hashedLabel == CRULES_HASHEDSTR("EPIC_SELF_CONCEALMENT_40") ||
-                    hashedLabel == CRULES_HASHEDSTR("EPIC_SELF_CONCEALMENT_50"))
+                if (label == "INVISIBILITY_CONCEALMENT_CHANCE" || label.Left(22) == "EPIC_SELF_CONCEALMENT_")
                     return 0;
             }
 
-            return s_GetRulesetIntEntryHook->CallOriginal<int32_t>(pThis, hashedLabel, whenMissing);
+            return s_GetRulesetIntEntryHook->CallOriginal<int32_t>(pThis, label, whenMissing);
         }, Hooks::Order::Late);
 }
 
@@ -262,7 +256,7 @@ NWNX_EXPORT ArgumentStack SetClassIsSneakAttackUncannyDodgeClass(ArgumentStack&&
         +[](CNWSCreature *pThis, CNWSCreature *pTarget) -> void
         {
             static const float SNEAK_ATTACK_DISTANCE = std::pow(
-                Globals::Rules()->GetRulesetFloatEntry(CRULES_HASHEDSTR("MAX_RANGED_SNEAK_ATTACK_DISTANCE"), 10.0f), 2);
+                Globals::Rules()->GetRulesetFloatEntry("MAX_RANGED_SNEAK_ATTACK_DISTANCE", 10.0f), 2);
 
             if (!pTarget)
                 return;
@@ -313,20 +307,16 @@ NWNX_EXPORT ArgumentStack SetClassIsSneakAttackUncannyDodgeClass(ArgumentStack&&
                     for (uint8_t i = 0; i < pThis->m_pStats->m_nNumMultiClasses; i++)
                     {
                         uint8_t attackerClass = pThis->m_pStats->GetClass(i);
-                        
+                        uint8_t defenderClass = pTarget->m_pStats->GetClass(i);
+
                         if (m_SneakAttackUncannyDodgeClasses.find(attackerClass) != m_SneakAttackUncannyDodgeClasses.end())
                             attackerLevels += pThis->m_pStats->GetClassLevel(i, false);
-                    }
-
-                    for (uint8_t i = 0; i < pTarget->m_pStats->m_nNumMultiClasses; i++)
-                    {
-                        uint8_t defenderClass = pTarget->m_pStats->GetClass(i);
 
                         if (m_SneakAttackUncannyDodgeClasses.find(defenderClass) != m_SneakAttackUncannyDodgeClasses.end())
                             defenderLevels += pTarget->m_pStats->GetClassLevel(i, false);
                     }
 
-                    isSneakAttack = attackerLevels - defenderLevels >= Globals::Rules()->GetRulesetIntEntry(CRULES_HASHEDSTR("FLANK_LEVEL_RANGE"), 4);
+                    isSneakAttack = attackerLevels - defenderLevels >= Globals::Rules()->GetRulesetIntEntry("FLANK_LEVEL_RANGE", 4);
                 }
             }
 
@@ -351,7 +341,7 @@ NWNX_EXPORT ArgumentStack SetClassIsSneakAttackUncannyDodgeClass(ArgumentStack&&
         +[](CNWSCreature *pThis, CNWSCreature *pTarget) -> void
         {
             static const float SNEAK_ATTACK_DISTANCE = std::pow(
-                Globals::Rules()->GetRulesetFloatEntry(CRULES_HASHEDSTR("MAX_RANGED_SNEAK_ATTACK_DISTANCE"), 10.0f), 2);
+                Globals::Rules()->GetRulesetFloatEntry("MAX_RANGED_SNEAK_ATTACK_DISTANCE", 10.0f), 2);
             if (!pTarget)
                 return;
 
@@ -401,20 +391,16 @@ NWNX_EXPORT ArgumentStack SetClassIsSneakAttackUncannyDodgeClass(ArgumentStack&&
                     for (uint8_t i = 0; i < pThis->m_pStats->m_nNumMultiClasses; i++)
                     {
                         uint8_t attackerClass = pThis->m_pStats->GetClass(i);
-                        
+                        uint8_t defenderClass = pTarget->m_pStats->GetClass(i);
+
                         if (m_SneakAttackUncannyDodgeClasses.find(attackerClass) != m_SneakAttackUncannyDodgeClasses.end())
                             attackerLevels += pThis->m_pStats->GetClassLevel(i, false);
-                    }
-
-                    for (uint8_t i = 0; i < pTarget->m_pStats->m_nNumMultiClasses; i++)
-                    {
-                        uint8_t defenderClass = pTarget->m_pStats->GetClass(i);
 
                         if (m_SneakAttackUncannyDodgeClasses.find(defenderClass) != m_SneakAttackUncannyDodgeClasses.end())
                             defenderLevels += pTarget->m_pStats->GetClassLevel(i, false);
                     }
 
-                    isDeathAttack = attackerLevels - defenderLevels >= Globals::Rules()->GetRulesetIntEntry(CRULES_HASHEDSTR("FLANK_LEVEL_RANGE"), 4);
+                    isDeathAttack = attackerLevels - defenderLevels >= Globals::Rules()->GetRulesetIntEntry("FLANK_LEVEL_RANGE", 4);
                 }
             }
 
@@ -928,7 +914,7 @@ NWNX_EXPORT ArgumentStack SetClassProgressesBardSongUses(ArgumentStack&& args)
                         if (s_BardSongExtraMusicByCharismaModifier)
                             nNumUses += std::clamp<uint8_t>(pThis->m_nCharismaModifier, 0, nBardSongClassLevels);
                         else
-                            nNumUses += Globals::Rules()->GetRulesetIntEntry(CRULES_HASHEDSTR("EXTRA_MUSIC_BONUS_USES"), 4);
+                            nNumUses += Globals::Rules()->GetRulesetIntEntry("EXTRA_MUSIC_BONUS_USES", 4);
                     }
 
                     if (m_BardSongUsesProgressingClasses.find(Constants::ClassType::Bard) != m_BardSongUsesProgressingClasses.end())
@@ -1017,16 +1003,16 @@ void ReplaceDefensiveStanceEffects()
         }, Hooks::Order::Final);
 }
 
-void ExtendEffectACBonusTypes() __attribute__((constructor));
-void ExtendEffectACBonusTypes()
+void ExtendEffectACIncreaseBonusTypes() __attribute__((constructor));
+void ExtendEffectACIncreaseBonusTypes()
 {
-    if (!Config::Get<bool>("EXTEND_EFFECTAC_BONUS_TYPES", false))
+    if (!Config::Get<bool>("EXTEND_EFFECTACINCREASE_BONUS_TYPES", false))
         return;
 
-    LOG_INFO("Enabled AC_BASE_BONUS=5 AC bonus type for EffectACIncrease and EffectACDecrease");
+    LOG_INFO("Enabled AC_BASE_BONUS=5 AC bonus type for EffectACIncrease");
 
-    static Hooks::Hook s_ExecuteCommandEffectACIncreaseHook = Hooks::HookFunction(&CNWSVirtualMachineCommands::ExecuteCommandEffectACIncrease,
-        +[](CNWSVirtualMachineCommands *pThis, int32_t nCommandId, int32_t nParameters) -> int32_t
+    static Hooks::Hook s_ExecuteCommandEffectACIncreaseHook = Hooks::HookFunction(&CNWVirtualMachineCommands::ExecuteCommandEffectACIncrease,
+        +[](CNWVirtualMachineCommands *pThis, int32_t nCommandId, int32_t nParameters) -> int32_t
         {
             auto *pVM = Globals::VirtualMachine();
             int32_t nValue, nModifyType, nDamageType;
@@ -1038,12 +1024,15 @@ void ExtendEffectACBonusTypes()
 
             if (nModifyType == 5)
             {
+                // no support for AC_VS_DAMAGE_TYPEs
+                nDamageType = 4103;
+
                 auto *pEffect = new CGameEffect(true);
                   SCOPEGUARD(delete pEffect);
                 pEffect->m_nType = Constants::EffectTrueType::ACIncrease;
                 pEffect->SetSubType_Magical();
-                pEffect->SetInteger(0, nModifyType);
-                pEffect->SetInteger(1, nValue);
+                pEffect->SetInteger(0, (uint8_t)nValue);
+                pEffect->SetInteger(1, nModifyType);
                 pEffect->SetInteger(2, Constants::RacialType::All);
                 pEffect->SetInteger(5, nDamageType);
 
@@ -1064,8 +1053,8 @@ void ExtendEffectACBonusTypes()
             return s_ExecuteCommandEffectACIncreaseHook->CallOriginal<int32_t>(pThis, nCommandId, nParameters);
         }, Hooks::Order::Late);
 
-    static Hooks::Hook s_ExecuteCommandEffectACDecreaseHook = Hooks::HookFunction(&CNWSVirtualMachineCommands::ExecuteCommandEffectACDecrease,
-        +[](CNWSVirtualMachineCommands *pThis, int32_t nCommandId, int32_t nParameters) -> int32_t
+    static Hooks::Hook s_ExecuteCommandEffectACDecreaseHook = Hooks::HookFunction(&CNWVirtualMachineCommands::ExecuteCommandEffectACDecrease,
+        +[](CNWVirtualMachineCommands *pThis, int32_t nCommandId, int32_t nParameters) -> int32_t
         {
             auto *pVM = Globals::VirtualMachine();
             int32_t nValue, nModifyType, nDamageType;
@@ -1077,12 +1066,15 @@ void ExtendEffectACBonusTypes()
 
             if (nModifyType == 5)
             {
+                // no support for AC_VS_DAMAGE_TYPEs
+                nDamageType = 4103;
+
                 auto *pEffect = new CGameEffect(true);
                   SCOPEGUARD(delete pEffect);
                 pEffect->m_nType = Constants::EffectTrueType::ACDecrease;
                 pEffect->SetSubType_Magical();
-                pEffect->SetInteger(0, nModifyType);
-                pEffect->SetInteger(1, nValue);
+                pEffect->SetInteger(0, (uint8_t)nValue);
+                pEffect->SetInteger(1, nModifyType);
                 pEffect->SetInteger(2, Constants::RacialType::All);
                 pEffect->SetInteger(5, nDamageType);
 
@@ -1107,7 +1099,7 @@ void ExtendEffectACBonusTypes()
         Hooks::HookFunction(&CNWSCreatureStats::GetACNaturalBase,
         +[](CNWSCreatureStats *pThis, BOOL bVsTouchAttack = false) -> char
         {
-            auto retval = s_GetACNaturalBaseHook->CallOriginal<char>(pThis, bVsTouchAttack);
+            char retval = s_GetACNaturalBaseHook->CallOriginal<char>(pThis, bVsTouchAttack);
 
             if (bVsTouchAttack)
                 return retval;
@@ -1116,50 +1108,9 @@ void ExtendEffectACBonusTypes()
             {
                 for (auto *pEffect : pGameObject->m_appliedEffects)
                 {
-                    if ((pEffect->m_nType == Constants::EffectTrueType::ACIncrease || pEffect->m_nType == Constants::EffectTrueType::ACDecrease) && pEffect->GetInteger(0) == 5)
+                    if ((pEffect->m_nType == Constants::EffectTrueType::ACIncrease || pEffect->m_nType == Constants::EffectTrueType::ACDecrease) && pEffect->GetInteger(1) == 5)
                     {
-                        if (pEffect->GetInteger(2) != Constants::RacialType::All ||
-                            pEffect->GetInteger(3) != 0 ||
-                            pEffect->GetInteger(4) != 0 ||
-                            pEffect->GetInteger(5) != 4103)
-                                continue;
-                        
-                        if (pEffect->m_nType == Constants::EffectTrueType::ACIncrease)
-                            retval += pEffect->GetInteger(1);
-                        else
-                            retval -= pEffect->GetInteger(1);
-                    }
-                }
-            }
-
-            return retval;
-        }, Hooks::Order::Late);
-
-    static Hooks::Hook s_GetArmorClassVersusHook =
-        Hooks::HookFunction(&CNWSCreatureStats::GetArmorClassVersus,
-        +[](CNWSCreatureStats *pThis, CNWSCreature *pCreature = nullptr, BOOL bVsTouchAttack = false) -> int16_t
-        {
-            auto retval = s_GetArmorClassVersusHook->CallOriginal<int16_t>(pThis, pCreature, bVsTouchAttack);
-
-            if (bVsTouchAttack || !pCreature)
-                return retval;
-
-            if (auto *pGameObject = Utils::AsNWSObject(pThis->m_pBaseCreature))
-            {
-                for (auto *pEffect : pGameObject->m_appliedEffects)
-                {
-                    if ((pEffect->m_nType == Constants::EffectTrueType::ACIncrease || pEffect->m_nType == Constants::EffectTrueType::ACDecrease) && pEffect->GetInteger(0) == 5)
-                    {
-                        if ((pEffect->GetInteger(2) != Constants::RacialType::All && pEffect->GetInteger(2) != pCreature->m_pStats->m_nRace) ||
-                            (pEffect->GetInteger(3) != 0 && pEffect->GetInteger(3) != pCreature->m_pStats->GetSimpleAlignmentLawChaos()) ||
-                            (pEffect->GetInteger(4) != 0 && pEffect->GetInteger(4) != pCreature->m_pStats->GetSimpleAlignmentGoodEvil()) ||
-                            (pEffect->GetInteger(5) != 4103 && (pEffect->GetInteger(5) & pCreature->GetDamageFlags())) != 0)
-                                continue;
-
-                        if (pEffect->m_nType == Constants::EffectTrueType::ACIncrease)
-                            retval += pEffect->GetInteger(1);
-                        else
-                            retval -= pEffect->GetInteger(1);
+                        retval += pEffect->GetInteger(0);
                     }
                 }
             }
@@ -1202,7 +1153,7 @@ NWNX_EXPORT ArgumentStack GetRulesetFloatEntry(ArgumentStack&& args)
 
     const auto fDefault = args.extract<float>();
 
-    return Globals::Rules()->GetRulesetFloatEntry(CRULES_HASHEDSTR(sEntry.c_str()), fDefault);
+    return Globals::Rules()->GetRulesetFloatEntry(sEntry, fDefault);
 }
 
 NWNX_EXPORT ArgumentStack GetRulesetIntEntry(ArgumentStack&& args)
@@ -1212,7 +1163,7 @@ NWNX_EXPORT ArgumentStack GetRulesetIntEntry(ArgumentStack&& args)
 
     const auto nDefault = args.extract<int32_t>();
 
-    return Globals::Rules()->GetRulesetIntEntry(CRULES_HASHEDSTR(sEntry.c_str()), nDefault);
+    return Globals::Rules()->GetRulesetIntEntry(sEntry, nDefault);
 }
 
 NWNX_EXPORT ArgumentStack GetRulesetStringEntry(ArgumentStack&& args)
@@ -1222,7 +1173,7 @@ NWNX_EXPORT ArgumentStack GetRulesetStringEntry(ArgumentStack&& args)
 
     const auto sDefault = args.extract<std::string>();
 
-    return Globals::Rules()->GetRulesetStringEntry(CRULES_HASHEDSTR(sEntry.c_str()), sDefault.c_str());
+    return Globals::Rules()->GetRulesetStringEntry(sEntry, sDefault);
 }
 
 void TempestAmbidexterity() __attribute__((constructor));
@@ -1235,12 +1186,14 @@ void TempestAmbidexterity()
 
     static Hooks::Hook s_GetRulesetIntEntryHook =
         Hooks::HookFunction(&CNWRules::GetRulesetIntEntry,
-        +[](CNWRules *pThis, uint64_t hashedLabel, int32_t whenMissing) -> int32_t
+        +[](CNWRules *pThis, const CExoString &label, int32_t whenMissing) -> int32_t
         {
-            auto retval = s_GetRulesetIntEntryHook->CallOriginal<int32_t>(pThis, hashedLabel, whenMissing);
+            auto retval = s_GetRulesetIntEntryHook->CallOriginal<int32_t>(pThis, label, whenMissing);
 
-            if (hashedLabel == CRULES_HASHEDSTR("TWO_WEAPON_FIGHTING_BONUS") && s_TempestAmbidexterityModifier > 0)
+            if (label == "TWO_WEAPON_FIGHTING_BONUS" && s_TempestAmbidexterityModifier > 0)
                 retval += s_TempestAmbidexterityModifier;
+
+            LOG_DEBUG("TWO_WEAPON_FIGHTING_BONUS %d", retval);
 
             return retval;
         }, Hooks::Order::Late);
@@ -1297,65 +1250,6 @@ NWNX_EXPORT ArgumentStack UpdateCombatInformation(ArgumentStack&& args)
 {
     if (auto *pCreature = Utils::PopCreature(args))
         pCreature->m_pStats->UpdateCombatInformation();
-
-    return {};
-}
-
-NWNX_EXPORT ArgumentStack SetCreatureAge(ArgumentStack&& args)
-{
-    if (auto *pCreature = Utils::PopCreature(args))
-        pCreature->m_pStats->m_nAge = args.extract<int32_t>();
-    
-    return {};
-}
-
-NWNX_EXPORT ArgumentStack SetUseBaseItemTypeUnequippedAllowed(ArgumentStack&& args)
-{
-    const auto nItemType = args.extract<int32_t>();
-      ASSERT_OR_THROW(nItemType >= Constants::BaseItem::MIN);
-      ASSERT_OR_THROW(nItemType <= Constants::BaseItem::MAX);
-
-    auto bAllow = !!args.extract<int32_t>();
-
-    CNWBaseItem *pBaseItem  = Globals::Rules()->m_pBaseItemArray->GetBaseItem(nItemType);
-      ASSERT_OR_THROW(pBaseItem);
-
-    LOG_INFO("Item type %s [%d] set to allow using spell properties while unequipped: %s", pBaseItem->GetNameText(), nItemType, bAllow ? "true" : "false");
-
-    if (bAllow)
-        m_BaseItemsAllowUseUnequipped.insert(nItemType);
-    else
-        m_BaseItemsAllowUseUnequipped.erase(nItemType);
-    
-    static Hooks::Hook s_UseItemHook =
-        Hooks::HookFunction(&CNWSCreature::UseItem,
-        +[](CNWSCreature *pThis, ObjectID oidItem, uint8_t nActivePropertyIndex, uint8_t nSubPropertyIndex, ObjectID oidTarget, Vector vTargetPosition, ObjectID oidArea, int32_t bUseCharges) -> int32_t
-        {
-            if (auto *pItem = Utils::AsNWSItem(Utils::GetGameObject(oidItem)))
-            {
-                if (m_BaseItemsAllowUseUnequipped.find(pItem->m_nBaseItem) != m_BaseItemsAllowUseUnequipped.end())
-                {
-                    s_InUseItemAllowUnequipped = true;
-                    int32_t retval = s_UseItemHook->CallOriginal<int32_t>(pThis, oidItem, nActivePropertyIndex, nSubPropertyIndex, oidTarget, vTargetPosition, oidArea, bUseCharges);
-                    s_InUseItemAllowUnequipped = false;
-
-                    return retval;
-                }
-            }
-            
-            return s_UseItemHook->CallOriginal<int32_t>(pThis, oidItem, nActivePropertyIndex, nSubPropertyIndex, oidTarget, vTargetPosition, oidArea, bUseCharges);
-        }, Hooks::Order::Late);
-
-    static Hooks::Hook s_GetSlotFromItem =
-        Hooks::HookFunction(&CNWSInventory::GetSlotFromItem,
-        +[](CNWSInventory *pThis, CNWSItem *pItem) -> uint32_t
-    {
-        if (s_InUseItemAllowUnequipped)
-            return 1;
-
-        return s_GetSlotFromItem->CallOriginal<uint32_t>(pThis, pItem);
-    }, Hooks::Order::Late);
-
 
     return {};
 }
