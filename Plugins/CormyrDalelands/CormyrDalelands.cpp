@@ -1003,13 +1003,13 @@ void ReplaceDefensiveStanceEffects()
         }, Hooks::Order::Final);
 }
 
-void ExtendEffectACIncreaseBonusTypes() __attribute__((constructor));
-void ExtendEffectACIncreaseBonusTypes()
+void ExtendEffectACBonusTypes() __attribute__((constructor));
+void ExtendEffectACBonusTypes()
 {
-    if (!Config::Get<bool>("EXTEND_EFFECTACINCREASE_BONUS_TYPES", false))
+    if (!Config::Get<bool>("EXTEND_EFFECTAC_BONUS_TYPES", false))
         return;
 
-    LOG_INFO("Enabled AC_BASE_BONUS=5 AC bonus type for EffectACIncrease");
+    LOG_INFO("Enabled AC_BASE_BONUS=5 AC bonus type for EffectACIncrease and EffectACDecrease");
 
     static Hooks::Hook s_ExecuteCommandEffectACIncreaseHook = Hooks::HookFunction(&CNWVirtualMachineCommands::ExecuteCommandEffectACIncrease,
         +[](CNWVirtualMachineCommands *pThis, int32_t nCommandId, int32_t nParameters) -> int32_t
@@ -1024,15 +1024,12 @@ void ExtendEffectACIncreaseBonusTypes()
 
             if (nModifyType == 5)
             {
-                // no support for AC_VS_DAMAGE_TYPEs
-                nDamageType = 4103;
-
                 auto *pEffect = new CGameEffect(true);
                   SCOPEGUARD(delete pEffect);
                 pEffect->m_nType = Constants::EffectTrueType::ACIncrease;
                 pEffect->SetSubType_Magical();
-                pEffect->SetInteger(0, (uint8_t)nValue);
-                pEffect->SetInteger(1, nModifyType);
+                pEffect->SetInteger(0, nModifyType);
+                pEffect->SetInteger(1, nValue);
                 pEffect->SetInteger(2, Constants::RacialType::All);
                 pEffect->SetInteger(5, nDamageType);
 
@@ -1066,15 +1063,12 @@ void ExtendEffectACIncreaseBonusTypes()
 
             if (nModifyType == 5)
             {
-                // no support for AC_VS_DAMAGE_TYPEs
-                nDamageType = 4103;
-
                 auto *pEffect = new CGameEffect(true);
                   SCOPEGUARD(delete pEffect);
                 pEffect->m_nType = Constants::EffectTrueType::ACDecrease;
                 pEffect->SetSubType_Magical();
-                pEffect->SetInteger(0, (uint8_t)nValue);
-                pEffect->SetInteger(1, nModifyType);
+                pEffect->SetInteger(0, nModifyType);
+                pEffect->SetInteger(1, nValue);
                 pEffect->SetInteger(2, Constants::RacialType::All);
                 pEffect->SetInteger(5, nDamageType);
 
@@ -1099,7 +1093,7 @@ void ExtendEffectACIncreaseBonusTypes()
         Hooks::HookFunction(&CNWSCreatureStats::GetACNaturalBase,
         +[](CNWSCreatureStats *pThis, BOOL bVsTouchAttack = false) -> char
         {
-            char retval = s_GetACNaturalBaseHook->CallOriginal<char>(pThis, bVsTouchAttack);
+            auto retval = s_GetACNaturalBaseHook->CallOriginal<char>(pThis, bVsTouchAttack);
 
             if (bVsTouchAttack)
                 return retval;
@@ -1108,9 +1102,50 @@ void ExtendEffectACIncreaseBonusTypes()
             {
                 for (auto *pEffect : pGameObject->m_appliedEffects)
                 {
-                    if ((pEffect->m_nType == Constants::EffectTrueType::ACIncrease || pEffect->m_nType == Constants::EffectTrueType::ACDecrease) && pEffect->GetInteger(1) == 5)
+                    if ((pEffect->m_nType == Constants::EffectTrueType::ACIncrease || pEffect->m_nType == Constants::EffectTrueType::ACDecrease) && pEffect->GetInteger(0) == 5)
                     {
-                        retval += pEffect->GetInteger(0);
+                        if (pEffect->GetInteger(2) != Constants::RacialType::All ||
+                            pEffect->GetInteger(3) != 0 ||
+                            pEffect->GetInteger(4) != 0 ||
+                            pEffect->GetInteger(5) != 4103)
+                                continue;
+                        
+                        if (pEffect->m_nType == Constants::EffectTrueType::ACIncrease)
+                            retval += pEffect->GetInteger(1);
+                        else
+                            retval -= pEffect->GetInteger(1);
+                    }
+                }
+            }
+
+            return retval;
+        }, Hooks::Order::Late);
+
+    static Hooks::Hook s_GetArmorClassVersusHook =
+        Hooks::HookFunction(&CNWSCreatureStats::GetArmorClassVersus,
+        +[](CNWSCreatureStats *pThis, CNWSCreature *pCreature = nullptr, BOOL bVsTouchAttack = false) -> int16_t
+        {
+            auto retval = s_GetArmorClassVersusHook->CallOriginal<int16_t>(pThis, pCreature, bVsTouchAttack);
+
+            if (bVsTouchAttack || !pCreature)
+                return retval;
+
+            if (auto *pGameObject = Utils::AsNWSObject(pThis->m_pBaseCreature))
+            {
+                for (auto *pEffect : pGameObject->m_appliedEffects)
+                {
+                    if ((pEffect->m_nType == Constants::EffectTrueType::ACIncrease || pEffect->m_nType == Constants::EffectTrueType::ACDecrease) && pEffect->GetInteger(0) == 5)
+                    {
+                        if ((pEffect->GetInteger(2) != Constants::RacialType::All && pEffect->GetInteger(2) != pCreature->m_pStats->m_nRace) ||
+                            (pEffect->GetInteger(3) != 0 && pEffect->GetInteger(3) != pCreature->m_pStats->GetSimpleAlignmentLawChaos()) ||
+                            (pEffect->GetInteger(4) != 0 && pEffect->GetInteger(4) != pCreature->m_pStats->GetSimpleAlignmentGoodEvil()) ||
+                            (pEffect->GetInteger(5) != 4103 && (pEffect->GetInteger(5) & pCreature->GetDamageFlags())) != 0)
+                                continue;
+
+                        if (pEffect->m_nType == Constants::EffectTrueType::ACIncrease)
+                            retval += pEffect->GetInteger(1);
+                        else
+                            retval -= pEffect->GetInteger(1);
                     }
                 }
             }
