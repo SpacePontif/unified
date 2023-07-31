@@ -1289,4 +1289,12 @@ NWNX_EXPORT ArgumentStack UpdateCombatInformation(ArgumentStack&& args)
     return {};
 }
 
+NWNX_EXPORT ArgumentStack SetCreatureAge(ArgumentStack&& args)
+{
+    if (auto *pCreature = Utils::PopCreature(args))
+        pCreature->m_pStats->m_nAge = args.extract<int32_t>();
+    
+    return {};
+}
+
 }
