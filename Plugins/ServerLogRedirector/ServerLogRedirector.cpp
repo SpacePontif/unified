@@ -31,10 +31,10 @@ static Hooks::Hook s_WriteToLogFileHook = Hooks::HookFunction((void*)&CExoDebugI
         std::string str = TrimMessage(message);
         bool bHideMessage = false;
 
-        if (s_hideValidateGFFResourceMessage && str.find("*** ValidateGFFResource sent by user.") == std::string::npos)
+        if (s_hideValidateGFFResourceMessage && str.find("*** ValidateGFFResource sent by user.") != std::string::npos)
             bHideMessage = true;
 
-        if (s_hideEventAddedWhilePausedMessage && str.find("Event added while paused:  EventId: ") == std::string::npos)
+        if (s_hideEventAddedWhilePausedMessage && str.find("Event added while paused:  EventId: ") != std::string::npos)
             bHideMessage = true;
         
         if(!bHideMessage)
