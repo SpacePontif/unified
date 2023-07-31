@@ -62,6 +62,11 @@ string NWNX_CormyrDalelands_GetRulesetStringEntry(string sEntry, string sDefault
 /// @param oCreature The creature whose's combat information to update.
 void NWNX_CormyrDalelands_UpdateCombatInformation(object oCreature);
 
+/// @brief Updates oCreature's age.
+/// @param oCreature The creature whose age to edit.
+/// @param nAge The new age to set.
+void NWNX_CormyrDalelands_SetCreatureAge(object oCreature, int nAge);
+
 /// @}
 
 int NWNX_CormyrDalelands_GetCreatureIncorporealFlag(object oCreature)
@@ -165,6 +170,15 @@ void NWNX_CormyrDalelands_UpdateCombatInformation(object oCreature)
 {
     string sFunc = "UpdateCombatInformation";
     
+    NWNX_PushArgumentObject(oCreature);
+    NWNX_CallFunction(NWNX_CormyrDalelands, sFunc);
+}
+
+void NWNX_CormyrDalelands_SetCreatureAge(object oCreature, int nAge)
+{
+    string sFunc = "SetCreatureAge";
+    
+    NWNX_PushArgumentInt(nAge);
     NWNX_PushArgumentObject(oCreature);
     NWNX_CallFunction(NWNX_CormyrDalelands, sFunc);
 }
