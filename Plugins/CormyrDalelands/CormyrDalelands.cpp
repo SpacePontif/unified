@@ -307,10 +307,14 @@ NWNX_EXPORT ArgumentStack SetClassIsSneakAttackUncannyDodgeClass(ArgumentStack&&
                     for (uint8_t i = 0; i < pThis->m_pStats->m_nNumMultiClasses; i++)
                     {
                         uint8_t attackerClass = pThis->m_pStats->GetClass(i);
-                        uint8_t defenderClass = pTarget->m_pStats->GetClass(i);
-
+                        
                         if (m_SneakAttackUncannyDodgeClasses.find(attackerClass) != m_SneakAttackUncannyDodgeClasses.end())
                             attackerLevels += pThis->m_pStats->GetClassLevel(i, false);
+                    }
+
+                    for (uint8_t i = 0; i < pTarget->m_pStats->m_nNumMultiClasses; i++)
+                    {
+                        uint8_t defenderClass = pTarget->m_pStats->GetClass(i);
 
                         if (m_SneakAttackUncannyDodgeClasses.find(defenderClass) != m_SneakAttackUncannyDodgeClasses.end())
                             defenderLevels += pTarget->m_pStats->GetClassLevel(i, false);
@@ -391,10 +395,14 @@ NWNX_EXPORT ArgumentStack SetClassIsSneakAttackUncannyDodgeClass(ArgumentStack&&
                     for (uint8_t i = 0; i < pThis->m_pStats->m_nNumMultiClasses; i++)
                     {
                         uint8_t attackerClass = pThis->m_pStats->GetClass(i);
-                        uint8_t defenderClass = pTarget->m_pStats->GetClass(i);
-
+                        
                         if (m_SneakAttackUncannyDodgeClasses.find(attackerClass) != m_SneakAttackUncannyDodgeClasses.end())
                             attackerLevels += pThis->m_pStats->GetClassLevel(i, false);
+                    }
+
+                    for (uint8_t i = 0; i < pTarget->m_pStats->m_nNumMultiClasses; i++)
+                    {
+                        uint8_t defenderClass = pTarget->m_pStats->GetClass(i);
 
                         if (m_SneakAttackUncannyDodgeClasses.find(defenderClass) != m_SneakAttackUncannyDodgeClasses.end())
                             defenderLevels += pTarget->m_pStats->GetClassLevel(i, false);
