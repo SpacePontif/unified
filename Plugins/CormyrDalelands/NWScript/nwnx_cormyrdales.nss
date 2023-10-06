@@ -67,6 +67,11 @@ void NWNX_CormyrDalelands_UpdateCombatInformation(object oCreature);
 /// @param nAge The new age to set.
 void NWNX_CormyrDalelands_SetCreatureAge(object oCreature, int nAge);
 
+/// @brief Sets whether nBaseItemType is allowed to be used while unequipped.
+/// @param nBaseItemType The BASE_ITEM_* type.
+/// @param bAllow Whether to allow the item type to be useable while unequipped.
+void NWNX_CormyrDalelands_SetUseBaseItemTypeUnequippedAllowed(int nBaseItemType, int bAllow);
+
 /// @}
 
 int NWNX_CormyrDalelands_GetCreatureIncorporealFlag(object oCreature)
@@ -180,5 +185,14 @@ void NWNX_CormyrDalelands_SetCreatureAge(object oCreature, int nAge)
     
     NWNX_PushArgumentInt(nAge);
     NWNX_PushArgumentObject(oCreature);
+    NWNX_CallFunction(NWNX_CormyrDalelands, sFunc);
+}
+
+void NWNX_CormyrDalelands_SetUseBaseItemTypeUnequippedAllowed(int nBaseItemType, int bAllow)
+{
+    string sFunc = "SetUseBaseItemTypeUnequippedAllowed";
+    
+    NWNX_PushArgumentInt(bAllow);
+    NWNX_PushArgumentInt(nBaseItemType);
     NWNX_CallFunction(NWNX_CormyrDalelands, sFunc);
 }

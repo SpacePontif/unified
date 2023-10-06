@@ -127,12 +127,15 @@ std::set<std::uint8_t> m_BardSongUsesProgressingClasses = {
     Constants::ClassType::Bard
 };
 
+std::set<std::uint32_t> m_BaseItemsAllowUseUnequipped;
+
 static bool s_InResolveDefensiveEffectsWithGhostTouchWeapon;
 static bool s_OverrideSneakAttackDamageRoll;
 static bool s_InSneakAttackRollDice;
 static bool s_OverrideDeathAttackDamageRoll;
 static bool s_InDeathAttackRollDice;
 static int32_t s_TempestAmbidexterityModifier;
+static bool s_InUseItemAllowUnequipped;
 static bool s_BardSongExtraMusicByCharismaModifier = Config::Get<bool>("BARD_SONG_EXTRA_MUSIC_BY_CHARISMA_MOD", false);
 static bool s_LingeringSongExtraMusic = Config::Get<bool>("BARD_SONG_EXTRA_MUSIC_USE_LINGERING_SONG_FEAT", false);
 
@@ -1302,6 +1305,57 @@ NWNX_EXPORT ArgumentStack SetCreatureAge(ArgumentStack&& args)
     if (auto *pCreature = Utils::PopCreature(args))
         pCreature->m_pStats->m_nAge = args.extract<int32_t>();
     
+    return {};
+}
+
+NWNX_EXPORT ArgumentStack SetUseBaseItemTypeUnequippedAllowed(ArgumentStack&& args)
+{
+    const auto nItemType = args.extract<int32_t>();
+      ASSERT_OR_THROW(nItemType >= Constants::BaseItem::MIN);
+      ASSERT_OR_THROW(nItemType <= Constants::BaseItem::MAX);
+
+    auto bAllow = !!args.extract<int32_t>();
+
+    CNWBaseItem *pBaseItem  = Globals::Rules()->m_pBaseItemArray->GetBaseItem(nItemType);
+      ASSERT_OR_THROW(pBaseItem);
+
+    LOG_INFO("Item type %s [%d] set to allow using spell properties while unequipped: %s", pBaseItem->GetNameText(), nItemType, bAllow ? "true" : "false");
+
+    if (bAllow)
+        m_BaseItemsAllowUseUnequipped.insert(nItemType);
+    else
+        m_BaseItemsAllowUseUnequipped.erase(nItemType);
+    
+    static Hooks::Hook s_UseItemHook =
+        Hooks::HookFunction(&CNWSCreature::UseItem,
+        +[](CNWSCreature *pThis, ObjectID oidItem, uint8_t nActivePropertyIndex, uint8_t nSubPropertyIndex, ObjectID oidTarget, Vector vTargetPosition, ObjectID oidArea, int32_t bUseCharges) -> int32_t
+        {
+            if (auto *pItem = Utils::AsNWSItem(Utils::GetGameObject(oidItem)))
+            {
+                if (m_BaseItemsAllowUseUnequipped.find(pItem->m_nBaseItem) != m_BaseItemsAllowUseUnequipped.end())
+                {
+                    s_InUseItemAllowUnequipped = true;
+                    int32_t retval = s_UseItemHook->CallOriginal<int32_t>(pThis, oidItem, nActivePropertyIndex, nSubPropertyIndex, oidTarget, vTargetPosition, oidArea, bUseCharges);
+                    s_InUseItemAllowUnequipped = false;
+
+                    return retval;
+                }
+            }
+            
+            return s_UseItemHook->CallOriginal<int32_t>(pThis, oidItem, nActivePropertyIndex, nSubPropertyIndex, oidTarget, vTargetPosition, oidArea, bUseCharges);
+        }, Hooks::Order::Late);
+
+    static Hooks::Hook s_GetSlotFromItem =
+        Hooks::HookFunction(&CNWSInventory::GetSlotFromItem,
+        +[](CNWSInventory *pThis, CNWSItem *pItem) -> uint32_t
+    {
+        if (s_InUseItemAllowUnequipped)
+            return 1;
+
+        return s_GetSlotFromItem->CallOriginal<uint32_t>(pThis, pItem);
+    }, Hooks::Order::Late);
+
+
     return {};
 }
 
