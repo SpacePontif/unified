@@ -166,8 +166,6 @@ void GhostTouchWeaponProperty()
                             s_ResolveDefensiveEffectsHook->CallOriginal<bool>(pThis, pTarget, bAttackHit);
                             s_InResolveDefensiveEffectsWithGhostTouchWeapon = false;
                         }
-
-                        return false;
                     }
                 }
             }
