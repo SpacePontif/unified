@@ -7,7 +7,7 @@
 #include "API/CGameEffect.hpp"
 #include "API/CNWClass.hpp"
 #include "API/CNWFeat.hpp"
-#include "API/CNWVirtualMachineCommands.hpp"
+#include "API/CNWSVirtualMachineCommands.hpp"
 #include "API/CNWSArea.hpp"
 #include "API/CNWSCreature.hpp"
 #include "API/CNWSCreatureStats.hpp"
@@ -188,7 +188,7 @@ void GhostTouchWeaponProperty()
 
     static Hooks::Hook s_GetRulesetIntEntryHook =
         Hooks::HookFunction(&CNWRules::GetRulesetIntEntry,
-        +[](CNWRules *pThis, const CExoString &label, int32_t whenMissing) -> int32_t
+        +[](CNWRules *pThis, uint64_t hashedLabel, int32_t whenMissing) -> int32_t
         {
             if (s_InResolveDefensiveEffectsWithGhostTouchWeapon)
             {
@@ -196,7 +196,7 @@ void GhostTouchWeaponProperty()
                     return 0;
             }
 
-            return s_GetRulesetIntEntryHook->CallOriginal<int32_t>(pThis, label, whenMissing);
+            return s_GetRulesetIntEntryHook->CallOriginal<int32_t>(pThis, hashedLabel, whenMissing);
         }, Hooks::Order::Late);
 }
 
@@ -257,7 +257,7 @@ NWNX_EXPORT ArgumentStack SetClassIsSneakAttackUncannyDodgeClass(ArgumentStack&&
         +[](CNWSCreature *pThis, CNWSCreature *pTarget) -> void
         {
             static const float SNEAK_ATTACK_DISTANCE = std::pow(
-                Globals::Rules()->GetRulesetFloatEntry("MAX_RANGED_SNEAK_ATTACK_DISTANCE", 10.0f), 2);
+                Globals::Rules()->GetRulesetFloatEntry(CRULES_HASHEDSTR("MAX_RANGED_SNEAK_ATTACK_DISTANCE"), 10.0f), 2);
 
             if (!pTarget)
                 return;
@@ -321,7 +321,7 @@ NWNX_EXPORT ArgumentStack SetClassIsSneakAttackUncannyDodgeClass(ArgumentStack&&
                             defenderLevels += pTarget->m_pStats->GetClassLevel(i, false);
                     }
 
-                    isSneakAttack = attackerLevels - defenderLevels >= Globals::Rules()->GetRulesetIntEntry("FLANK_LEVEL_RANGE", 4);
+                    isSneakAttack = attackerLevels - defenderLevels >= Globals::Rules()->GetRulesetIntEntry(CRULES_HASHEDSTR("FLANK_LEVEL_RANGE"), 4);
                 }
             }
 
@@ -346,7 +346,7 @@ NWNX_EXPORT ArgumentStack SetClassIsSneakAttackUncannyDodgeClass(ArgumentStack&&
         +[](CNWSCreature *pThis, CNWSCreature *pTarget) -> void
         {
             static const float SNEAK_ATTACK_DISTANCE = std::pow(
-                Globals::Rules()->GetRulesetFloatEntry("MAX_RANGED_SNEAK_ATTACK_DISTANCE", 10.0f), 2);
+                Globals::Rules()->GetRulesetFloatEntry(CRULES_HASHEDSTR("MAX_RANGED_SNEAK_ATTACK_DISTANCE"), 10.0f), 2);
             if (!pTarget)
                 return;
 
@@ -409,7 +409,7 @@ NWNX_EXPORT ArgumentStack SetClassIsSneakAttackUncannyDodgeClass(ArgumentStack&&
                             defenderLevels += pTarget->m_pStats->GetClassLevel(i, false);
                     }
 
-                    isDeathAttack = attackerLevels - defenderLevels >= Globals::Rules()->GetRulesetIntEntry("FLANK_LEVEL_RANGE", 4);
+                    isDeathAttack = attackerLevels - defenderLevels >= Globals::Rules()->GetRulesetIntEntry(CRULES_HASHEDSTR("FLANK_LEVEL_RANGE"), 4);
                 }
             }
 
@@ -923,7 +923,7 @@ NWNX_EXPORT ArgumentStack SetClassProgressesBardSongUses(ArgumentStack&& args)
                         if (s_BardSongExtraMusicByCharismaModifier)
                             nNumUses += std::clamp<uint8_t>(pThis->m_nCharismaModifier, 0, nBardSongClassLevels);
                         else
-                            nNumUses += Globals::Rules()->GetRulesetIntEntry("EXTRA_MUSIC_BONUS_USES", 4);
+                            nNumUses += Globals::Rules()->GetRulesetIntEntry(CRULES_HASHEDSTR("EXTRA_MUSIC_BONUS_USES"), 4);
                     }
 
                     if (m_BardSongUsesProgressingClasses.find(Constants::ClassType::Bard) != m_BardSongUsesProgressingClasses.end())
@@ -1021,7 +1021,7 @@ void ExtendEffectACBonusTypes()
     LOG_INFO("Enabled AC_BASE_BONUS=5 AC bonus type for EffectACIncrease and EffectACDecrease");
 
     static Hooks::Hook s_ExecuteCommandEffectACIncreaseHook = Hooks::HookFunction(&CNWVirtualMachineCommands::ExecuteCommandEffectACIncrease,
-        +[](CNWVirtualMachineCommands *pThis, int32_t nCommandId, int32_t nParameters) -> int32_t
+        +[](CNWSVirtualMachineCommands *pThis, int32_t nCommandId, int32_t nParameters) -> int32_t
         {
             auto *pVM = Globals::VirtualMachine();
             int32_t nValue, nModifyType, nDamageType;
@@ -1060,7 +1060,7 @@ void ExtendEffectACBonusTypes()
         }, Hooks::Order::Late);
 
     static Hooks::Hook s_ExecuteCommandEffectACDecreaseHook = Hooks::HookFunction(&CNWVirtualMachineCommands::ExecuteCommandEffectACDecrease,
-        +[](CNWVirtualMachineCommands *pThis, int32_t nCommandId, int32_t nParameters) -> int32_t
+        +[](CNWSVirtualMachineCommands *pThis, int32_t nCommandId, int32_t nParameters) -> int32_t
         {
             auto *pVM = Globals::VirtualMachine();
             int32_t nValue, nModifyType, nDamageType;
@@ -1190,7 +1190,7 @@ void DisableItemRestrictionProperties()
         }, Hooks::Order::Final);
 }
 
-NWNX_EXPORT ArgumentStack GetRulesetFloatEntry(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack GetRulesetFloatEntry(CRULES_HASHEDSTR(ArgumentStack&&) args)
 {
     const auto sEntry = args.extract<std::string>();
       ASSERT_OR_THROW(!sEntry.empty());
@@ -1200,24 +1200,24 @@ NWNX_EXPORT ArgumentStack GetRulesetFloatEntry(ArgumentStack&& args)
     return Globals::Rules()->GetRulesetFloatEntry(sEntry, fDefault);
 }
 
-NWNX_EXPORT ArgumentStack GetRulesetIntEntry(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack GetRulesetIntEntry(CRULES_HASHEDSTR(ArgumentStack&&) args)
 {
     const auto sEntry = args.extract<std::string>();
       ASSERT_OR_THROW(!sEntry.empty());
 
     const auto nDefault = args.extract<int32_t>();
 
-    return Globals::Rules()->GetRulesetIntEntry(sEntry, nDefault);
+    return Globals::Rules()->GetRulesetIntEntry(CRULES_HASHEDSTR(sEntry), nDefault);
 }
 
-NWNX_EXPORT ArgumentStack GetRulesetStringEntry(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack GetRulesetStringEntry(CRULES_HASHEDSTR(ArgumentStack&&) args)
 {
     const auto sEntry = args.extract<std::string>();
       ASSERT_OR_THROW(!sEntry.empty());
 
     const auto sDefault = args.extract<std::string>();
 
-    return Globals::Rules()->GetRulesetStringEntry(sEntry, sDefault);
+    return Globals::Rules()->GetRulesetStringEntry(CRULES_HASHEDSTR(sEntry), sDefault);
 }
 
 void TempestAmbidexterity() __attribute__((constructor));
@@ -1232,9 +1232,9 @@ void TempestAmbidexterity()
         Hooks::HookFunction(&CNWRules::GetRulesetIntEntry,
         +[](CNWRules *pThis, const CExoString &label, int32_t whenMissing) -> int32_t
         {
-            auto retval = s_GetRulesetIntEntryHook->CallOriginal<int32_t>(pThis, label, whenMissing);
+            auto retval = s_GetRulesetIntEntryHook->CallOriginal<int32_t>(pThis, hashedlabel, whenMissing);
 
-            if (label == "TWO_WEAPON_FIGHTING_BONUS" && s_TempestAmbidexterityModifier > 0)
+            if (hashedLabel == "TWO_WEAPON_FIGHTING_BONUS" && s_TempestAmbidexterityModifier > 0)
                 retval += s_TempestAmbidexterityModifier;
 
             LOG_DEBUG("TWO_WEAPON_FIGHTING_BONUS %d", retval);
