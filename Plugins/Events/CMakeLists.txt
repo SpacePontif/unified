@@ -34,4 +34,5 @@ add_plugin(Events
     "Events/StoreEvents.cpp"
     "Events/TimingBarEvents.cpp"
     "Events/TrapEvents.cpp"
-    "Events/UUIDEvents.cpp")
+    "Events/UUIDEvents.cpp"
+    "Events/CormyrDalelandsEvents.cpp")
