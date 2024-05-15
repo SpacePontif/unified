@@ -625,7 +625,7 @@ void NWNX_Util_SetCurrentlyRunningEvent(int nEventID)
 
 int NWNX_Util_GetStringLevenshteinDistance(string sString, string sCompareTo)
 {
-    string sFunc = "LevenshteinDistance";
+    string sFunc = "GetStringLevenshteinDistance";
 
     NWNX_PushArgumentString(sCompareTo);
     NWNX_PushArgumentString(sString);
